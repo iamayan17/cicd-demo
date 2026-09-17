@@ -29,4 +29,4 @@ jobs:
       - name: Push Docker image
         run: |
           docker push \
-            ${{ secrets['MY_DOCKER-USERNAME'] }}/cicd-demo:latest
+            ${{ secrets['MY_DOCKER_USERNAME'] }}/cicd-demo:latest
