@@ -8,20 +8,25 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-  
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+
+      - name: Clone repository
+        run: |
+          git clone https://github.com/${{ github.repository }}.git .
+          git checkout ${{ github.sha }}
 
       - name: Login to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.MY_DOCKER_USERNAME }}
-          password: ${{ secrets.MY_DOCKER_PWD }}
+        run: |
+          echo "${{ secrets.MY_DOCKER_PWD }}" | \
+          docker login -u "${{ secrets['MY_DOCKER_USERNAME'] }}" --password-stdin
 
       - name: Build Docker image
-        run: docker build -t ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:latest .
+        run: |
+          docker build \
+            -t ${{ secrets['MY_DOCKER_USERNAME'] }}/cicd-demo:latest .
 
       - name: Push Docker image
-        run: docker push ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:latest
+        run: |
+          docker push \
+            ${{ secrets['MY_DOCKER-USERNAME'] }}/cicd-demo:latest
