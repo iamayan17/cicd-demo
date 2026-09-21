@@ -19,14 +19,62 @@ jobs:
       - name: Login to DockerHub
         run: |
           echo "${{ secrets.MY_DOCKER_PWD }}" | \
-          docker login -u "${{ secrets['MY_DOCKER_USERNAME'] }}" --password-stdin
+          docker login -u "${{ secrets.MY_DOCKER_USERNAME }}" --password-stdin
 
       - name: Build Docker image
         run: |
           docker build \
-            -t ${{ secrets['MY_DOCKER_USERNAME'] }}/cicd-demo:latest .
+            -t ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:latest .
 
       - name: Push Docker image
         run: |
           docker push \
-            ${{ secrets['MY_DOCKER_USERNAME'] }}/cicd-demo:latest
+            ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:latest
+
+      - name: Deploy to EC2
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" > private_key.pem
+          chmod 600 private_key.pem
+
+          ssh -o StrictHostKeyChecking=no \
+            -i private_key.pem \
+            ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} << 'EOF'
+
+            # Install Docker if it is not installed
+            if ! command -v docker &> /dev/null
+            then
+              echo "Installing Docker..."
+
+              sudo apt-get update
+              sudo apt-get install -y docker.io
+
+              sudo systemctl start docker
+              sudo systemctl enable docker
+            fi
+
+            # Login to Docker Hub
+            echo "${{ secrets.MY_DOCKER_PWD }}" | \
+              sudo docker login \
+              -u "${{ secrets.MY_DOCKER_USERNAME }}" \
+              --password-stdin
+
+            # Pull new image
+            sudo docker pull \
+              ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:latest
+
+            # Stop old container
+            sudo docker stop cicd-demo || true
+
+            # Remove old container
+            sudo docker rm cicd-demo || true
+
+            # Run new container
+            sudo docker run -d \
+              --name cicd-demo \
+              -p 80:80 \
+              ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:latest
+
+            EOF
+
+          # Delete private key from GitHub runner
+          rm -f private_key.pem
