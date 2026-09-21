@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  build-and-push:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,7 +19,9 @@ jobs:
       - name: Login to DockerHub
         run: |
           echo "${{ secrets.MY_DOCKER_PWD }}" | \
-          docker login -u "${{ secrets.MY_DOCKER_USERNAME }}" --password-stdin
+          docker login \
+            -u "${{ secrets.MY_DOCKER_USERNAME }}" \
+            --password-stdin
 
       - name: Build Docker image
         run: |
@@ -38,43 +40,7 @@ jobs:
 
           ssh -o StrictHostKeyChecking=no \
             -i private_key.pem \
-            ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} << 'EOF'
-          if ! command -v docker &> /dev/null
-          then
-            echo "Installing Docker..."
-
-            sudo dnf install -y docker
-            sudo systemctl start docker
-            sudo systemctl enable docker
-          fi
-
-          echo "${{ secrets.MY_DOCKER_PWD }}" | \
-            sudo docker login \
-            -u "${{ secrets.MY_DOCKER_USERNAME }}" \
-            --password-stdin
-
-          echo "Pulling latest image..."
-
-          sudo docker pull \
-            ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:latest
-
-          echo "Stopping old container..."
-
-          sudo docker stop cicd-demo || true
-
-          echo "Removing old container..."
-
-          sudo docker rm cicd-demo || true
-
-          echo "Starting new container..."
-
-          sudo docker run -d \
-            --name cicd-demo \
-            -p 80:80 \
-            ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:latest
-
-          echo "Deployment completed!"
-
-          EOF
+            ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} \
+            "bash ~/deploy.sh"
 
           rm -f private_key.pem
