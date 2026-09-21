@@ -39,42 +39,42 @@ jobs:
           ssh -o StrictHostKeyChecking=no \
             -i private_key.pem \
             ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} << 'EOF'
+          if ! command -v docker &> /dev/null
+          then
+            echo "Installing Docker..."
 
-            # Install Docker if it is not installed
-            if ! command -v docker &> /dev/null
-            then
-              echo "Installing Docker..."
+            sudo dnf install -y docker
+            sudo systemctl start docker
+            sudo systemctl enable docker
+          fi
 
-              sudo apt-get update
-              sudo apt-get install -y docker.io
+          echo "${{ secrets.MY_DOCKER_PWD }}" | \
+            sudo docker login \
+            -u "${{ secrets.MY_DOCKER_USERNAME }}" \
+            --password-stdin
 
-              sudo systemctl start docker
-              sudo systemctl enable docker
-            fi
+          echo "Pulling latest image..."
 
-            # Login to Docker Hub
-            echo "${{ secrets.MY_DOCKER_PWD }}" | \
-              sudo docker login \
-              -u "${{ secrets.MY_DOCKER_USERNAME }}" \
-              --password-stdin
+          sudo docker pull \
+            ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:latest
 
-            # Pull new image
-            sudo docker pull \
-              ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:latest
+          echo "Stopping old container..."
 
-            # Stop old container
-            sudo docker stop cicd-demo || true
+          sudo docker stop cicd-demo || true
 
-            # Remove old container
-            sudo docker rm cicd-demo || true
+          echo "Removing old container..."
 
-            # Run new container
-            sudo docker run -d \
-              --name cicd-demo \
-              -p 80:80 \
-              ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:latest
+          sudo docker rm cicd-demo || true
 
-            EOF
+          echo "Starting new container..."
 
-          # Delete private key from GitHub runner
+          sudo docker run -d \
+            --name cicd-demo \
+            -p 80:80 \
+            ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:latest
+
+          echo "Deployment completed!"
+
+          EOF
+
           rm -f private_key.pem
