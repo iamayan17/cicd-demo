@@ -1,6 +1,9 @@
 name: Kubernetes CD
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -8,7 +11,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Install kubectl
@@ -16,7 +20,7 @@ jobs:
         with:
           version: latest
 
-      - name: Configure kubeconfig
+      - name: Configure Kubernetes
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         run: |
@@ -24,21 +28,21 @@ jobs:
           printf '%s' "$KUBE_CONFIG" > ~/.kube/config
           chmod 600 ~/.kube/config
 
-      - name: Check cluster
+      - name: Test Kubernetes Connection
         run: |
           kubectl cluster-info
           kubectl get nodes
 
-      - name: Deploy
+      - name: Deploy Application
         run: |
           kubectl apply -f k8s/
 
-      - name: Check deployment
+      - name: Check Deployment
         run: |
           kubectl get deployments
           kubectl get pods
           kubectl get services
 
-      - name: Rollout
+      - name: Wait for Rollout
         run: |
           kubectl rollout status deployment/my-app --timeout=120s
