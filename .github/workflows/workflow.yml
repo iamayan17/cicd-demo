@@ -8,11 +8,8 @@ on:
 
 jobs:
 
-  # =========================
-  # CI
-  # =========================
   build-and-push:
-    name: Build and Push
+    name: CI
     runs-on: ubuntu-latest
 
     steps:
@@ -25,21 +22,19 @@ jobs:
           username: ${{ secrets.MY_DOCKER_USERNAME }}
           password: ${{ secrets.MY_DOCKER_PWD }}
 
-      - name: Build Docker Image
+      - name: Build Image
         run: |
-          docker build -t mohdayan17/cicd-demo:latest .
-          docker build -t mohdayan17/cicd-demo:${{ github.sha }} .
+          docker build \
+            -t ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:latest \
+            -t ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:${{ github.sha }} .
 
-      - name: Push Docker Image
+      - name: Push Image
         run: |
-          docker push mohdayan17/cicd-demo:latest
-          docker push mohdayan17/cicd-demo:${{ github.sha }}
+          docker push ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:latest
+          docker push ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:${{ github.sha }}
 
-  # =========================
-  # CD
-  # =========================
   deploy:
-    name: Deploy to Kubernetes
+    name: CD
     needs: build-and-push
     runs-on: self-hosted
 
@@ -47,7 +42,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure Kubeconfig
+      - name: Configure Kubernetes
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         run: |
@@ -60,22 +55,12 @@ jobs:
           kubectl cluster-info
           kubectl get nodes
 
-      - name: Deploy Application
+      - name: Deploy
         run: |
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/
 
-      - name: Update Image
+      - name: Show Resources
         run: |
-          kubectl set image deployment/cicd-demo \
-            cicd-demo=mohdayan17/cicd-demo:${{ github.sha }}
-
-      - name: Wait for Rollout
-        run: |
-          kubectl rollout status deployment/cicd-demo --timeout=180s
-
-      - name: Verify Deployment
-        run: |
-          kubectl get deployment cicd-demo
-          kubectl get pods -l app=cicd-demo
-          kubectl get service cicd-demo-service
+          kubectl get deployments
+          kubectl get pods
+          kubectl get services
