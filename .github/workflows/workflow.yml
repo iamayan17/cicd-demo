@@ -19,15 +19,23 @@ jobs:
           kubectl cluster-info
           kubectl get nodes
 
-      - name: Deploy Application
+      - name: Deploy Nginx
         run: |
-          kubectl apply -f k8s/
+          kubectl create deployment my-app \
+            --image=nginx:latest \
+            --replicas=2 \
+            --dry-run=client \
+            -o yaml | kubectl apply -f -
 
-      - name: Check Deployment
+      - name: Create Service
         run: |
-          kubectl get deployments
-          kubectl get pods
-          kubectl get services
+          kubectl expose deployment my-app \
+            --name=my-app-service \
+            --type=NodePort \
+            --port=80 \
+            --target-port=80 \
+            --dry-run=client \
+            -o yaml | kubectl apply -f -
 
       - name: Wait for Rollout
         run: |
@@ -35,6 +43,7 @@ jobs:
 
       - name: Verify
         run: |
+          kubectl get deployment my-app
           kubectl get pods -l app=my-app
           kubectl get service my-app-service
 
@@ -44,5 +53,4 @@ jobs:
           kubectl get pods -o wide
           kubectl describe deployment my-app
           kubectl describe pods -l app=my-app
-          kubectl logs -l app=my-app --tail=100 || true
           kubectl get events --sort-by=.lastTimestamp
