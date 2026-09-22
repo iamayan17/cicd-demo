@@ -1,7 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
   name: my-app
+
 spec:
   replicas: 2
 
@@ -17,15 +19,22 @@ spec:
     spec:
       containers:
         - name: my-app
-          image: mohdayan17/my-app:latest
+          image: mohdayan17/cicd-demo:latest
+          imagePullPolicy: Always
 
           ports:
             - containerPort: 5000
 
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 500m
-              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 10
