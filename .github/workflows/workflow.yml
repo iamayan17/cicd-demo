@@ -1,4 +1,3 @@
-```yaml
 name: Kubernetes CD
 
 on:
@@ -43,4 +42,3 @@ jobs:
       - name: Rollout
         run: |
           kubectl rollout status deployment/my-app --timeout=120s
-```
