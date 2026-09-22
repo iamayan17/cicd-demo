@@ -4,12 +4,18 @@ on:
   push:
     branches:
       - main
+
   workflow_dispatch:
 
 jobs:
 
+  # ============================================================
+  # CI - BUILD & PUSH
+  # ============================================================
   build-and-push:
+
     name: CI - Build and Push
+
     runs-on: ubuntu-latest
 
     steps:
@@ -27,56 +33,105 @@ jobs:
         run: |
           docker build \
             -t ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:latest \
-            -t ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:${{ github.sha }} .
+            -t ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:${{ github.sha }} \
+            .
 
       - name: Push Docker Image
         run: |
           docker push ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:latest
           docker push ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:${{ github.sha }}
 
+
+  # ============================================================
+  # CD - DEPLOY TO KUBERNETES
+  # ============================================================
   deploy:
+
     name: CD - Deploy to Kubernetes
+
     needs: build-and-push
-    runs-on: self-hosted
+
+    runs-on: ubuntu-latest
 
     steps:
 
       - name: Checkout
         uses: actions/checkout@v4
 
+
+      # --------------------------------------------------------
+      # Install kubectl
+      # --------------------------------------------------------
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: latest
+
+
+      # --------------------------------------------------------
+      # Configure Kubernetes
+      # --------------------------------------------------------
       - name: Configure Kubernetes
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+
         run: |
           mkdir -p ~/.kube
+
           printf '%s' "$KUBE_CONFIG" > ~/.kube/config
+
           chmod 600 ~/.kube/config
 
+
+      # --------------------------------------------------------
+      # Check Kubernetes
+      # --------------------------------------------------------
       - name: Check Kubernetes Cluster
         run: |
           kubectl cluster-info
           kubectl get nodes
 
+
+      # --------------------------------------------------------
+      # Apply Kubernetes manifests
+      # --------------------------------------------------------
       - name: Apply Kubernetes Manifests
         run: |
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/service.yaml
 
+
+      # --------------------------------------------------------
+      # Update application image
+      # --------------------------------------------------------
       - name: Update Application Image
         run: |
           kubectl set image deployment/my-app \
             my-app=${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:${{ github.sha }}
 
+
+      # --------------------------------------------------------
+      # Wait for deployment
+      # --------------------------------------------------------
       - name: Wait for Deployment
         run: |
-          kubectl rollout status deployment/my-app --timeout=180s
+          kubectl rollout status deployment/my-app \
+            --timeout=180s
 
+
+      # --------------------------------------------------------
+      # Verify deployment
+      # --------------------------------------------------------
       - name: Verify Deployment
         run: |
           kubectl get deployment my-app
           kubectl get pods -l app=my-app
           kubectl get service my-app-service
 
+
+      # --------------------------------------------------------
+      # Show endpoint
+      # --------------------------------------------------------
       - name: Show Endpoint
         run: |
-          kubectl get service my-app-service
+          kubectl get service my-app-service -o wide
