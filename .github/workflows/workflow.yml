@@ -8,8 +8,11 @@ on:
 
 jobs:
 
+  # =========================
+  # CI
+  # =========================
   build-and-push:
-    name: CI - Build and Push
+    name: Build and Push Docker Image
     runs-on: ubuntu-latest
 
     steps:
@@ -23,19 +26,22 @@ jobs:
           username: ${{ secrets.MY_DOCKER_USERNAME }}
           password: ${{ secrets.MY_DOCKER_PWD }}
 
-      - name: Build Docker Image
+      - name: Build Image
         run: |
           docker build \
             -t ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:latest \
             -t ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:${{ github.sha }} .
 
-      - name: Push Docker Image
+      - name: Push Image
         run: |
           docker push ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:latest
           docker push ${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:${{ github.sha }}
 
+  # =========================
+  # CD
+  # =========================
   deploy:
-    name: CD - Deploy to Kubernetes
+    name: Deploy to Killercoda Kubernetes
     needs: build-and-push
     runs-on: self-hosted
 
@@ -44,30 +50,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure Kubernetes
-        env:
-          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+      - name: Check Kubernetes
         run: |
-          mkdir -p ~/.kube
-          printf '%s' "$KUBE_CONFIG" > ~/.kube/config
-          chmod 600 ~/.kube/config
+          echo "Current user:"
+          whoami
 
-      - name: Check Kubernetes Cluster
-        run: |
+          echo "Kubernetes context:"
+          kubectl config current-context
+
+          echo "Cluster:"
           kubectl cluster-info
+
+          echo "Nodes:"
           kubectl get nodes
 
-      - name: Apply Kubernetes Manifests
+      - name: Deploy Kubernetes Resources
         run: |
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/
 
-      - name: Update Application Image
+      - name: Update Docker Image
         run: |
           kubectl set image deployment/my-app \
             my-app=${{ secrets.MY_DOCKER_USERNAME }}/cicd-demo:${{ github.sha }}
 
-      - name: Wait for Deployment
+      - name: Check Rollout
         run: |
           kubectl rollout status deployment/my-app --timeout=180s
 
