@@ -1,4 +1,4 @@
-```yaml
+
 name: Kubernetes CD
 
 on:
@@ -48,4 +48,3 @@ jobs:
           kubectl get deployments
           kubectl get pods
           kubectl get services
-```
