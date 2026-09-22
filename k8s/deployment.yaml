@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: my-app
-          image: YOUR_DOCKERHUB_USERNAME/my-app:latest
+          image: mohdayan17/my-app:latest
 
           ports:
             - containerPort: 5000
